@@ -6,6 +6,7 @@ import static android.os.Build.VERSION_CODES.KITKAT;
 import static android.os.Build.VERSION_CODES.LOLLIPOP;
 import static android.os.Build.VERSION_CODES.M;
 import static android.os.Build.VERSION_CODES.P;
+import static android.os.Build.VERSION_CODES.Q;
 
 import android.content.ContentResolver;
 import android.content.Context;
@@ -206,7 +207,12 @@ public class ShadowSettings {
 
     @Implementation
     protected static boolean putInt(ContentResolver cr, String name, int value) {
-      if (Settings.Secure.LOCATION_MODE.equals(name) && RuntimeEnvironment.getApiLevel() < P) {
+      if (!Objects.equals(get(cr).put(name, value), value)) {
+        if (cr != null) {
+          cr.notifyChange(Settings.Secure.getUriFor(name), null);
+        }
+      }
+      if (Settings.Secure.LOCATION_MODE.equals(name) && RuntimeEnvironment.getApiLevel() <= Q) {
         // set provider settings as well
         boolean gps =
             (value == Settings.Secure.LOCATION_MODE_SENSORS_ONLY
@@ -216,11 +222,6 @@ public class ShadowSettings {
                 || value == Settings.Secure.LOCATION_MODE_HIGH_ACCURACY);
         Settings.Secure.setLocationProviderEnabled(cr, LocationManager.GPS_PROVIDER, gps);
         Settings.Secure.setLocationProviderEnabled(cr, LocationManager.NETWORK_PROVIDER, network);
-      }
-      if (!Objects.equals(get(cr).put(name, value), value)) {
-        if (cr != null) {
-          cr.notifyChange(Settings.Secure.getUriFor(name), null);
-        }
       }
       return true;
     }
@@ -525,7 +526,10 @@ public class ShadowSettings {
    * @param use24HourTimeFormat new status for the time setting
    */
   public static void set24HourTimeFormat(boolean use24HourTimeFormat) {
-    Settings.System.putString(RuntimeEnvironment.application.getContentResolver(), Settings.System.TIME_12_24, use24HourTimeFormat ? "24" : "12");
+    Settings.System.putString(
+        RuntimeEnvironment.application.getContentResolver(),
+        Settings.System.TIME_12_24,
+        use24HourTimeFormat ? "24" : "12");
   }
 
   private static boolean canDrawOverlays = false;
