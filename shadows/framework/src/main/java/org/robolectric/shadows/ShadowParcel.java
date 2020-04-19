@@ -36,6 +36,7 @@ import org.robolectric.annotation.Implements;
 import org.robolectric.annotation.RealObject;
 import org.robolectric.res.android.NativeObjRegistry;
 import org.robolectric.util.ReflectionHelpers;
+import org.robolectric.util.ReflectionHelpers.ClassParameter;
 
 /**
  * Robolectric's {@link Parcel} pretends to be backed by a byte buffer, closely matching {@link
@@ -48,6 +49,7 @@ import org.robolectric.util.ReflectionHelpers;
 public class ShadowParcel {
   private static final String TAG = "Parcel";
 
+  private static boolean isFileDescriptorIntercepted = true;
   @RealObject private Parcel realObject;
   private static final NativeObjRegistry<ByteBuffer> NATIVE_BYTE_BUFFER_REGISTRY =
       new NativeObjRegistry<>(ByteBuffer.class);
@@ -1196,5 +1198,54 @@ public class ShadowParcel {
     RandomAccessFile randomAccessFile =
         new RandomAccessFile(file, mode == ParcelFileDescriptor.MODE_READ_ONLY ? "r" : "rw");
     return randomAccessFile.getFD();
+  }
+
+  /**
+   * Sets that if read/write FileDescriptor to the Parcel should be enabled or disabled.
+   *
+   * <p>The interception is enabled by default.
+   */
+  public static void setIsFileDescriptorIntercepted(boolean isFileDescriptorIntercepted) {
+    ShadowParcel.isFileDescriptorIntercepted = isFileDescriptorIntercepted;
+  }
+
+  @Implementation(minSdk = M)
+  public final FileDescriptor readRawFileDescriptor() {
+    if (isFileDescriptorIntercepted) {
+      return interceptedNativeReadFileDescriptor(
+          ReflectionHelpers.getField(realObject, "mNativePtr"));
+    } else {
+      return ReflectionHelpers.callInstanceMethod(realObject, "readRawFileDescriptor");
+    }
+  }
+
+  @Implementation(minSdk = M)
+  public final void writeFileDescriptor(FileDescriptor val) {
+    if (isFileDescriptorIntercepted) {
+      ReflectionHelpers.callInstanceMethod(
+          realObject,
+          "updateNativeSize",
+          ClassParameter.from(
+              long.class,
+              interceptedNativeWriteFileDescriptor(
+                  ReflectionHelpers.getField(realObject, "mNativePtr"), val)));
+    } else {
+      realObject.writeFileDescriptor(val);
+    }
+  }
+
+  private static long interceptedNativeWriteFileDescriptor(long nativePtr, FileDescriptor val) {
+    // The Java version of FileDescriptor stored the fd in a field called "fd", and the Android
+    // version changed the field name to "descriptor". But it looks like Robolectric uses the
+    // Java version of FileDescriptor instead of the Android version.
+    int fd = ReflectionHelpers.getField(val, "fd");
+    NATIVE_BYTE_BUFFER_REGISTRY.getNativeObject(nativePtr).writeInt(fd);
+    return (long) nativeDataPosition(nativePtr);
+  }
+
+  public static FileDescriptor interceptedNativeReadFileDescriptor(long nativePtr) {
+    int fd = NATIVE_BYTE_BUFFER_REGISTRY.getNativeObject(nativePtr).readInt();
+    return ReflectionHelpers.callConstructor(
+        FileDescriptor.class, ClassParameter.from(int.class, fd));
   }
 }
