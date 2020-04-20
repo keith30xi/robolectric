@@ -11,11 +11,33 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class ShadowGradientDrawableTest {
   @Test
-  public void testGetColor_returnsColor() throws Exception {
+  public void testGetLastSetColor_returnsColor() throws Exception {
     GradientDrawable gradientDrawable = new GradientDrawable();
     ShadowGradientDrawable shadowGradientDrawable = shadowOf(gradientDrawable);
     int color = 123;
     gradientDrawable.setColor(color);
     assertThat(shadowGradientDrawable.getLastSetColor()).isEqualTo(color);
+  }
+
+  @Test
+  public void testGetLastSetStrokeWidth_returnsStrokeWidth() throws Exception {
+    int strokeWidth = 123;
+    GradientDrawable gradientDrawable = new GradientDrawable();
+
+    gradientDrawable.setStroke(strokeWidth, /* color= */ 456);
+
+    ShadowGradientDrawable shadowGradientDrawable = shadowOf(gradientDrawable);
+    assertThat(shadowGradientDrawable.getLastSetStrokeWidth()).isEqualTo(strokeWidth);
+  }
+
+  @Test
+  public void testGetLastSetStrokeColor_returnsStrokeColor() throws Exception {
+    int stokeColor = 123;
+    GradientDrawable gradientDrawable = new GradientDrawable();
+
+    gradientDrawable.setStroke(/* width= */ 456, stokeColor);
+
+    ShadowGradientDrawable shadowGradientDrawable = shadowOf(gradientDrawable);
+    assertThat(shadowGradientDrawable.getLastSetStrokeColor()).isEqualTo(stokeColor);
   }
 }
