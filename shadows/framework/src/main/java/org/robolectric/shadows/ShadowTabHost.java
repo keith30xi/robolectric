@@ -3,6 +3,7 @@ package org.robolectric.shadows;
 import android.R;
 import android.app.Activity;
 import android.content.Context;
+import android.content.ContextWrapper;
 import android.content.Intent;
 import android.graphics.drawable.Drawable;
 import android.view.View;
@@ -107,11 +108,16 @@ public class ShadowTabHost extends ShadowViewGroup {
   @Implementation
   protected TabWidget getTabWidget() {
     Context context = realView.getContext();
-    if (context instanceof Activity) {
-      return (TabWidget) ((Activity)context).findViewById(R.id.tabs);
-    } else {
-      return null;
+    while (context != null) {
+      if (context instanceof Activity) {
+        return (TabWidget) ((Activity) context).findViewById(R.id.tabs);
+      } else if (context instanceof ContextWrapper) {
+        context = ((ContextWrapper) context).getBaseContext();
+      } else {
+        return null;
+      }
     }
+    return null;
   }
 
   public TabHost.TabSpec getSpecByTag(String tag) {
